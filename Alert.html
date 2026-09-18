@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Scam App Popup Alerts</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f172a;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Mock Smartphone Wrapper for Preview */
+        .phone-container {
+            width: 360px;
+            height: 640px;
+            background-color: #1e293b;
+            border: 12px solid #334155;
+            border-radius: 36px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+        }
+
+        .phone-screen {
+            padding: 20px;
+            height: 100%;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(to bottom, #1e293b, #0f172a);
+        }
+
+        /* 🚨 THE CORE POPUP BOX FIREWALL OVERLAY */
+        .scam-alert-popup {
+            background-color: #ffffff;
+            border-radius: 20px;
+            padding: 24px;
+            width: 100%;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            border-top: 8px solid #ef4444; /* Alert Red Guard */
+            box-sizing: border-box;
+            animation: popUpEntrance 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes popUpEntrance {
+            from { transform: scale(0.9) translateY(20px); opacity: 0; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        .alert-icon-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .warning-emoji {
+            font-size: 28px;
+        }
+
+        .alert-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: #991b1b;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .alert-body {
+            font-size: 14px;
+            color: #374151;
+            line-height: 1.5;
+            margin: 0 0 20px 0;
+            font-weight: 500;
+        }
+
+        .alert-body strong {
+            color: #b91c1c;
+        }
+
+        /* Action Buttons Grid */
+        .btn-container {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-danger {
+            background-color: #dc2626;
+            color: #ffffff;
+        }
+
+        .btn-danger:hover {
+            background-color: #b91c1c;
+        }
+
+        .btn-secondary {
+            background-color: #f3f4f6;
+            color: #4b5563;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e5e7eb;
+        }
+
+        /* Interactive Switcher Controls for Previewing */
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            background-color: #334155;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .control-btn.active {
+            background-color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Smartphone Wrapper Container -->
+    <div class="phone-container">
+        <div class="phone-screen">
+            
+            <!-- Dynamic Alert Box Window Component -->
+            <div class="scam-alert-popup" id="alertBox">
+                <div class="alert-icon-header">
+                    <span class="warning-emoji" id="alertEmoji">🚨</span>
+                    <h3 class="alert-title" id="alertTitle">Dangerous Link Detected!</h3>
+                </div>
+                <p class="alert-body" id="alertText">
+                    This message contains a hidden UPI collect request disguised as a bank update. Tapping this will transfer <strong>₹299 or more</strong> out of your bank account.
+                </p>
+                <div class="btn-container" id="btnContainer">
+                    <button class="btn btn-danger">Block & Delete</button>
+                    <button class="btn btn-secondary">Learn More</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Live Demo Switcher Panel -->
+    <div class="controls">
+        <button class="control-btn active" onclick="switchAlert('link', this)">1. Link Scam</button>
+        <button class="control-btn" onclick="switchAlert('call', this)">2. Call Scam</button>
+        <button class="control-btn" onclick="switchAlert('qr', this)">3. Fake QR</button>
+    </div>
+
+    <script>
+        // Dictionary tracking exact visual parameters across screens
+        const alertData = {
+            link: {
+                emoji: "🚨",
+                title: "Dangerous Link Detected!",
+                text: "This message contains a hidden UPI collect request disguised as a bank update. Tapping this will transfer <strong>₹299 or more</strong> out of your bank account.",
+                btn1: "Block & Delete",
+                btn2: "Learn More"
+            },
+            call: {
+                emoji: "🛑",
+                title: "High Risk Call Alert",
+                text: "This number is heavily flagged for posing as a police officer or bank agent. <strong>Do not share your OTP, UPI PIN, or passwords</strong> under any circumstances.",
+                btn1: "Decline Call",
+                btn2: "Mute & Ignore"
+            },
+            qr: {
+                emoji: "⚠️",
+                title: "Unverified Personal ID",
+                text: "This QR code belongs to a <strong>private personal wallet account</strong>, not a registered store merchant. Do not proceed if you are trying to pay a local business billing node.",
+                btn1: "Cancel Payment",
+                btn2: "Proceed Anyway"
+            }
+        };
+
+        function switchAlert(type, element) {
+            // Update active styling filters across control toggles
+            document.querySelectorAll('.control-btn').forEach(btn => btn.classList.remove('active'));
+            element.classList.add('active');
+
+            // Inject structural adjustments dynamically into layout blocks
+            const data = alertData[type];
+            document.getElementById('alertEmoji').innerText = data.emoji;
+            document.getElementById('alertTitle').innerText = data.title;
+            document.getElementById('alertText').innerHTML = data.text;
+            
+            const btnContainer = document.getElementById('btnContainer');
+            btnContainer.innerHTML = `
+                <button class="btn btn-danger">${data.btn1}</button>
+                <button class="btn btn-secondary">${data.btn2}</button>
+            `;
+            
+            // Re-trigger the custom entrance css scaling animation cleanly
+            const alertBox = document.getElementById('alertBox');
+            alertBox.style.animation = 'none';
+            alertBox.offsetHeight; /* Trigger reflow mechanism */
+            alertBox.style.animation = null; 
+        }
+    </script>
+</body>
+</html>
