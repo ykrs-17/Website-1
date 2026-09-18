@@ -1,0 +1,200 @@
+/**
+ * ANTI-SCAM APP PAYMENT GATEWAY, VERIFICATION WEBSITE & ADMIN DASHBOARD
+ * Single-File Full-Stack Architecture + MongoDB Atlas + Secure Admin View Panel
+ * Run Command: node server.js
+ */
+
+const express = require('express');
+const mongoose = require('mongoose');
+const crypto = require('crypto');
+const cookieParser = require('cookie-parser'); // Needed to process admin panel session cookies safely
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// ---------------------------------------------------------
+// 🔑 CREDENTIAL CONFIGURATION PANEL
+// ---------------------------------------------------------
+// Change these settings to whatever you want your phone login to be!
+const ADMIN_USERNAME = process.env.ADMIN_USER || "admin";
+const ADMIN_PASSWORD = process.env.ADMIN_PASS || "SecureAntiScam2026!";
+const SESSION_SECRET = crypto.randomBytes(32).toString('hex'); // Dynamic server session signing key
+
+// ---------------------------------------------------------
+// 🔌 PERMANENT MONGODB ATLAS DATABASE CONNECTION
+// ---------------------------------------------------------
+const MONGO_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/antiscam_app";
+
+mongoose.connect(MONGO_URI)
+  .then(() => console.log("💾 Secured connection to permanent MongoDB Atlas Cloud!"))
+  .catch(err => console.error("❌ MongoDB connection error:", err));
+
+const TransactionSchema = new mongoose.Schema({
+    id: { type: String, required: true, unique: true },
+    utr: { type: String, required: true, unique: true, index: true },
+    status: { type: String, default: "Pending Verification" },
+    createdAt: { type: Date, default: Date.now }
+});
+const Transaction = mongoose.model('Transaction', TransactionSchema);
+
+// ---------------------------------------------------------
+// 🔒 HIGH-SECURITY FIREWALLS & MIDDLEWARE
+// ---------------------------------------------------------
+app.use(express.json({ limit: '10kb' })); 
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(cookieParser(SESSION_SECRET)); // Parses incoming tracking parameters safely
+
+app.use((req, res, next) => {
+    res.removeHeader("X-Powered-By");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    next();
+});
+
+// Admin Authentication Guard Firewall
+const requireAdminAuth = (req, res, next) => {
+    const authCookie = req.signedCookies.admin_session;
+    if (authCookie && authCookie === "authenticated_admin") {
+        return next();
+    }
+    // Unauthorized hits get bounced directly to the login gate screen
+    res.redirect('/admin/login');
+};
+
+const ipRequestTracker = {};
+const rateLimiterFirewall = (req, res, next) => {
+    const clientIp = req.ip || req.headers['x-forwarded-for'];
+    const currentTime = Date.now();
+    const timeframe = 15 * 60 * 1000;
+
+    if (!ipRequestTracker[clientIp]) ipRequestTracker[clientIp] = [];
+    ipRequestTracker[clientIp] = ipRequestTracker[clientIp].filter(ts => currentTime - ts < timeframe);
+
+    if (ipRequestTracker[clientIp].length >= 5) {
+        return res.status(429).json({ success: false, message: "Too many requests. Blocked for 15 minutes." });
+    }
+    ipRequestTracker[clientIp].push(currentTime);
+    next();
+};
+
+// ---------------------------------------------------------
+// 📄 USER FRONTEND TERMINAL
+// ---------------------------------------------------------
+app.get('/', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Unlock Premium Security Access</title>
+        <style>
+            body { font-family: -apple-system, sans-serif; background-color: #f4f6f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+            .payment-card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); max-width: 380px; width: 100%; text-align: center; }
+            .price-tag { font-size: 24px; font-weight: bold; color: #2b6cb0; margin-bottom: 20px; }
+            .qr-container img { width: 200px; height: 200px; }
+            .instructions { font-size: 14px; color: #4a5568; margin-bottom: 20px; text-align: left; }
+            input[type="text"] { width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+            .submit-btn { background-color: #2b6cb0; color: white; border: none; padding: 14px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 10px;}
+            .status-banner { margin-top: 15px; padding: 10px; border-radius: 6px; font-size: 14px; display: none; }
+            .error { background-color: #fed7d7; color: #9b2c2c; }
+            .success { background-color: #c6f6d5; color: #22543d; }
+        </style>
+    </head>
+    <body>
+    <div class="payment-card">
+        <h2>Unlock Anti-Scam Protection</h2>
+        <div class="price-tag">₹299.00</div>
+        <div class="qr-container">
+            <img src="https://qrserver.com{encodeURIComponent('upi://pay?pa=ykrs0124@oksbi&pn=Anti-Scam%20App&am=299.00&cu=INR&tn=App%20Premium%20Entry%20Fee')}" alt="Scan to Pay">
+        </div>
+        <div class="instructions"><strong>1. Scan QR</strong> via UPI app.<br><strong>2. Submit</strong> the 12-digit UTR Number for manual activation validation.</div>
+        <form id="payForm">
+            <input type="text" id="utr" maxlength="12" placeholder="Enter 12-Digit UTR" inputmode="numeric" required>
+            <button type="submit" class="submit-btn">Verify Transaction</button>
+        </form>
+        <div id="banner" class="status-banner"></div>
+    </div>
+    <script>
+        document.getElementById('payForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const utrValue = document.getElementById('utr').value.trim();
+            const banner = document.getElementById('banner');
+            if (!/^[0-9]{12}$/.test(utrValue)) {
+                banner.className = "status-banner error"; banner.innerText = "Must be 12 numbers."; banner.style.display = "block"; return;
+            }
+            try {
+                const response = await fetch('/api/verify-payment', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ utr: utrValue })
+                });
+                const data = await response.json();
+                banner.className = data.success ? "status-banner success" : "status-banner error";
+                banner.innerText = data.message; banner.style.display = "block";
+            } catch {
+                banner.className = "status-banner error"; banner.innerText = "Server connection lost."; banner.style.display = "block";
+            }
+        });
+    </script>
+    </body>
+    </html>
+    `);
+});
+
+// ---------------------------------------------------------
+// 📄 ROUTE 2: PUBLIC UTR SUBMISSION PROCESSING API
+// ---------------------------------------------------------
+app.post('/api/verify-payment', rateLimiterFirewall, async (req, res) => {
+    const { utr } = req.body;
+    if (!utr || typeof utr !== 'string' || !/^[0-9]{12}$/.test(utr)) {
+        return res.status(400).json({ success: false, message: "Security Flag: Invalid format structure." });
+    }
+    try {
+        const duplicateCheck = await Transaction.findOne({ utr: utr });
+        if (duplicateCheck) return res.status(409).json({ success: false, message: "This UTR is already under active review." });
+
+        const newRecord = new Transaction({ id: crypto.randomUUID(), utr: utr });
+        await newRecord.save();
+        return res.status(200).json({ success: true, message: "UTR logged permanently. Activating within 1-2 hours." });
+    } catch {
+        return res.status(500).json({ success: false, message: "Server logging error." });
+    }
+});
+
+// ---------------------------------------------------------
+// 📄 ROUTE 3: ADMIN INTERACTIVE LOGIN ROUTER
+// ---------------------------------------------------------
+app.get('/admin/login', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Admin Dashboard Gateway Entry</title>
+        <style>
+            body { font-family: sans-serif; background-color: #1a202c; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: white; }
+            .login-box { background: #2d3748; padding: 30px; border-radius: 12px; max-width: 340px; width: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+            input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 6px; border: none; font-size: 16px; box-sizing: border-box; }
+            button { background: #48bb78; color: white; border: none; width: 100%; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        </style>
+    </head>
+    <body>
+    <div class="login-box">
+        <h3>🔑 Admin Control Login</h3>
+        <form action="/admin/login" method="POST">
+            <input type="text" name="username" placeholder="Username" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <button type="submit">Access Security Logs</button>
+        </form>
+    </div>
+    </body>
+    </html>
+    `);
+});
+
+app.post('/admin/login', (req, res) => {
+    const { username, password } = req.body;
+
+    // Hardened Cryptographic Timing Attack Protective Matches
+    const userValid = crypto.timingSafeEqual(Buffer.from(username), Buffer.from(ADMIN_USERNAME));
+    const passValid = crypto.timingSafeEqual(Buffer.from(password), Buffer.from(ADMIN_PASSWORD));
+
+    if (userValid && passValid) {
